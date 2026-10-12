@@ -178,3 +178,29 @@ def test_policies_are_sent_and_unknown_checks_dropped():
     assert result.insights.renewal.notice_days == 90
     schema = fake.calls[0]["output_config"]["format"]["schema"]
     assert {"renewal", "payment_terms_days", "policy_checks"} <= set(schema["required"])
+
+
+def test_messy_output_is_normalized_not_rejected():
+    from app.schemas import DocumentInsights
+
+    messy = {
+        **VALID,
+        "key_dates": [{"label": "End", "date": "2027-01-14T00:00:00Z", "source_quote": "x" * 900}],
+        "amounts": [{"label": "Fee", "value": 10, "currency": " usd "}],
+        "risks": VALID["risks"] * 25,
+        "renewal": {
+            "auto_renews": True,
+            "term_end_date": "end of next year",
+            "notice_days": 9999,
+            "renewal_term_months": 12,
+            "source_quote": "",
+        },
+        "payment_terms_days": -5,
+        "policy_checks": [],
+    }
+    ins = DocumentInsights.model_validate(messy)
+    assert ins.key_dates[0].date == "2027-01-14" and len(ins.key_dates[0].source_quote) == 400
+    assert ins.amounts[0].currency == "USD"
+    assert len(ins.risks) == 20
+    assert ins.renewal.term_end_date == "" and ins.renewal.notice_days == 730
+    assert ins.payment_terms_days == 0

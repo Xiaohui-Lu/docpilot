@@ -80,7 +80,7 @@ For reading one document once, a chat assistant is great. DocPilot is for the pa
 - **Tenant isolation by construction.** Every query, retrieval, rule and calendar feed is scoped to the organization; cross-tenant IDs return 404. Covered by tests.
 - **Observability.** JSON logs with request IDs, Prometheus metrics (HTTP, jobs, queue depth, LLM latency / tokens / cost), alert rules, Grafana dashboard.
 - **Runs offline.** A rule-based demo provider implements the same interface, so the product and CI run with no API key and zero cost.
-- **Tested.** 56 backend tests (SQLite and PostgreSQL in CI), frontend unit tests, Playwright E2E covering upload -> deadlines -> mark handled -> rulebook.
+- **Tested.** 57 backend tests (SQLite and PostgreSQL in CI), frontend unit tests, Playwright E2E covering upload -> deadlines -> mark handled -> rulebook.
 
 ## Architecture
 
@@ -163,10 +163,12 @@ Separate API / worker / web Deployments, migrate Job, probes, resource limits, H
 ## Tests
 
 ```bash
-cd backend && pytest                                   # 56 tests; set TEST_DATABASE_URL to run on PostgreSQL
+cd backend && pytest                                   # 57 tests; set TEST_DATABASE_URL to run on PostgreSQL
 cd frontend && npm test && npm run typecheck           # unit tests + strict TypeScript
 cd frontend && npx playwright test                     # E2E against a real API + worker + UI
 ```
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint, backend tests on SQLite and PostgreSQL, frontend checks, Playwright E2E and builds both container images on every push (set the repository variable `PUSH_IMAGES=true` to publish images to GHCR).
 
 ## Project structure
 

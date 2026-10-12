@@ -1,9 +1,9 @@
 """Pydantic schemas: API contracts and the validated LLM extraction schema."""
 
-from datetime import datetime
-from typing import Any, Literal
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
 
 Role = Literal["admin", "member", "viewer"]
 RiskLevel = Literal["low", "medium", "high"]
@@ -16,80 +16,96 @@ DocType = Literal["contract", "nda", "invoice", "policy", "other"]
 # ---------------------------------------------------------------------------
 
 
-def _iso_or_empty(v: str) -> str:
-    if v and not (len(v) == 10 and v[4] == "-" and v[7] == "-"):
-        raise ValueError("date must be YYYY-MM-DD or empty")
-    return v
+# Model output is normalized rather than rejected wherever that is safe: an over-long quote is trimmed
+# (a prefix of a verbatim quote is still verbatim), lists are capped, numbers clamped, and an unparseable
+# date becomes "unknown". Rejecting would trigger a paid retry that usually returns the same thing.
+
+
+def _clip(n: int) -> BeforeValidator:
+    return BeforeValidator(lambda v: v.strip()[:n] if isinstance(v, str) else v)
+
+
+def _cap(n: int) -> BeforeValidator:
+    return BeforeValidator(lambda v: v[:n] if isinstance(v, list) else v)
+
+
+def _clamp(lo: int, hi: int) -> BeforeValidator:
+    return BeforeValidator(lambda v: max(lo, min(hi, int(v))) if isinstance(v, int | float) else v)
+
+
+def _iso_date(v: object) -> object:
+    """ISO date (YYYY-MM-DD) or empty string. Anything unparseable is treated as unknown."""
+    if not isinstance(v, str) or not v.strip():
+        return ""
+    try:
+        return date.fromisoformat(v.strip()[:10]).isoformat()
+    except ValueError:
+        return ""
+
+
+IsoDate = Annotated[str, BeforeValidator(_iso_date)]
+Quote = Annotated[str, _clip(400)]
+Label = Annotated[str, _clip(120)]
 
 
 class Party(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    role: str = Field(max_length=100, description="e.g. Client, Vendor, Licensor, Employee")
+    name: Annotated[str, _clip(200), Field(min_length=1)]
+    role: Annotated[str, _clip(100), Field(description="e.g. Client, Vendor, Licensor, Employee")]
 
 
 class KeyDate(BaseModel):
-    label: str = Field(max_length=120)
-    date: str = Field(description="ISO date YYYY-MM-DD, or empty string if not determinable")
-    source_quote: str = Field(max_length=400, description="Verbatim text from the document")
-
-    @field_validator("date")
-    @classmethod
-    def _date(cls, v: str) -> str:
-        return _iso_or_empty(v)
+    label: Label
+    date: Annotated[IsoDate, Field(description="ISO date YYYY-MM-DD, or empty string if not determinable")]
+    source_quote: Annotated[Quote, Field(description="Verbatim text from the document")]
 
 
 class Amount(BaseModel):
-    label: str = Field(max_length=120)
+    label: Label
     value: float
-    currency: str = Field(min_length=3, max_length=3)
+    currency: Annotated[str, BeforeValidator(lambda v: v.strip().upper()[:8] if isinstance(v, str) else v)]
 
 
 class Risk(BaseModel):
     severity: RiskLevel
-    title: str = Field(max_length=120)
-    explanation: str = Field(max_length=600)
-    source_quote: str = Field(max_length=400, description="Verbatim text from the document")
+    title: Label
+    explanation: Annotated[str, _clip(600)]
+    source_quote: Annotated[Quote, Field(description="Verbatim text from the document")]
 
 
 class RenewalTerms(BaseModel):
     """What it takes to stop the agreement from rolling over - the basis for 'cancel by' alerts."""
 
     auto_renews: bool = False
-    term_end_date: str = Field(default="", description="ISO date the current term ends, or empty")
-    notice_days: int = Field(default=0, ge=0, le=730, description="Days of notice needed to cancel; 0 if none")
-    renewal_term_months: int = Field(default=0, ge=0, le=120)
-    source_quote: str = Field(default="", max_length=400)
-
-    @field_validator("term_end_date")
-    @classmethod
-    def _date(cls, v: str) -> str:
-        return _iso_or_empty(v)
+    term_end_date: Annotated[IsoDate, Field(description="ISO date the current term ends, or empty")] = ""
+    notice_days: Annotated[int, _clamp(0, 730), Field(description="Days of notice needed to cancel; 0 if none")] = 0
+    renewal_term_months: Annotated[int, _clamp(0, 120)] = 0
+    source_quote: Quote = ""
 
 
 class PolicyCheck(BaseModel):
     """Result of a company rulebook instruction evaluated by the model."""
 
-    rule_id: str = Field(max_length=64)
+    rule_id: Annotated[str, _clip(64)]
     violated: bool
-    explanation: str = Field(max_length=600)
-    source_quote: str = Field(default="", max_length=400)
+    explanation: Annotated[str, _clip(600)]
+    source_quote: Quote = ""
 
 
 class DocumentInsights(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     doc_type: DocType
-    title: str = Field(max_length=200)
-    summary: str = Field(max_length=1200)
-    parties: list[Party] = Field(max_length=20)
-    key_dates: list[KeyDate] = Field(max_length=30)
-    amounts: list[Amount] = Field(max_length=30)
-    obligations: list[str] = Field(max_length=30)
-    risks: list[Risk] = Field(max_length=20)
+    title: Annotated[str, _clip(200)]
+    summary: Annotated[str, _clip(1200)]
+    parties: Annotated[list[Party], _cap(20)]
+    key_dates: Annotated[list[KeyDate], _cap(30)]
+    amounts: Annotated[list[Amount], _cap(30)]
+    obligations: Annotated[list[Annotated[str, _clip(400)]], _cap(30)]
+    risks: Annotated[list[Risk], _cap(20)]
     overall_risk: RiskLevel
     renewal: RenewalTerms = Field(default_factory=RenewalTerms)
-    payment_terms_days: int = Field(default=0, ge=0, le=365, description="Days to pay invoices; 0 if not stated")
-    policy_checks: list[PolicyCheck] = Field(default_factory=list, max_length=50)
+    payment_terms_days: Annotated[int, _clamp(0, 365), Field(description="Days to pay invoices; 0 if not stated")] = 0
+    policy_checks: Annotated[list[PolicyCheck], _cap(50)] = Field(default_factory=list)
 
 
 def _strict(obj: dict[str, Any]) -> dict[str, Any]:
