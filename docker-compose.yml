@@ -1,0 +1,94 @@
+# Full local stack: PostgreSQL, API, background worker, web UI, Prometheus and Grafana.
+#   cp .env.example .env && docker compose up --build
+# Web UI: http://localhost:8080  ·  API docs: http://localhost:8000/docs
+# Prometheus: http://localhost:9090  ·  Grafana: http://localhost:3000 (anonymous viewer)
+# Mailpit (catches the weekly deadline emails): http://localhost:8025
+
+x-backend-env: &backend-env
+  DOCPILOT_ENV: prod
+  DOCPILOT_DATABASE_URL: postgresql+psycopg://docpilot:docpilot@db:5432/docpilot
+  DOCPILOT_JWT_SECRET: ${DOCPILOT_JWT_SECRET:?set DOCPILOT_JWT_SECRET in .env}
+  DOCPILOT_CORS_ORIGINS: http://localhost:8080
+  DOCPILOT_LLM_PROVIDER: ${DOCPILOT_LLM_PROVIDER:-demo}
+  DOCPILOT_LLM_MODEL: ${DOCPILOT_LLM_MODEL:-claude-opus-5-5}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  DOCPILOT_AUTO_CREATE_SCHEMA: "false"
+  DOCPILOT_WORKER_EMBEDDED: "false"
+  DOCPILOT_APP_BASE_URL: http://localhost:8080
+  # Deadline digests go to Mailpit locally; point these at SES / SendGrid / Postmark in production.
+  DOCPILOT_SMTP_HOST: ${DOCPILOT_SMTP_HOST:-mailpit}
+  DOCPILOT_SMTP_PORT: ${DOCPILOT_SMTP_PORT:-1025}
+  DOCPILOT_SMTP_STARTTLS: ${DOCPILOT_SMTP_STARTTLS:-false}
+  DOCPILOT_SMTP_USER: ${DOCPILOT_SMTP_USER:-}
+  DOCPILOT_SMTP_PASSWORD: ${DOCPILOT_SMTP_PASSWORD:-}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: docpilot
+      POSTGRES_PASSWORD: docpilot
+      POSTGRES_DB: docpilot
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docpilot"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: ./backend
+    command: ["python", "-m", "app.migrate"]
+    environment: *backend-env
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: ./backend
+    environment: *backend-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    environment: *backend-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    deploy:
+      replicas: 2 # claims are atomic, so workers scale horizontally
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports: ["8080:8080"]
+    depends_on: [api]
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["8025:8025"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+    depends_on: [api, worker]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+
+volumes:
+  pgdata:

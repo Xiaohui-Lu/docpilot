@@ -1,0 +1,27 @@
+# Owns the schema so API/worker replicas never race. Run on every release (e.g. as an Argo CD PreSync hook).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: docpilot-migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: migrate
+          image: docpilot-api
+          command: ["python", "-m", "app.migrate"]
+          envFrom:
+            - configMapRef: { name: docpilot-config }
+            - secretRef: { name: docpilot-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }

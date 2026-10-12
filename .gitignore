@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.db
+*.db-shm
+*.db-wal
+.pytest-bootstrap.db
+
+# Node
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# Local
+.env
+*.log
+.DS_Store
+outbox/

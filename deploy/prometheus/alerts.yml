@@ -1,0 +1,33 @@
+groups:
+  - name: docpilot
+    rules:
+      - alert: DocPilotHighErrorRate
+        expr: |
+          sum(rate(docpilot_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(docpilot_http_requests_total[5m])), 1e-9) > 0.05
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: More than 5% of API requests are failing
+
+      - alert: DocPilotQueueBacklog
+        expr: max(docpilot_job_queue_depth) > 50
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: Document processing backlog is growing - scale workers or check the LLM provider
+
+      - alert: DocPilotJobFailures
+        expr: sum(rate(docpilot_jobs_processed_total{outcome="failed"}[15m])) > 0.1
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: Documents are failing processing permanently
+
+      - alert: DocPilotSlowLLM
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(docpilot_llm_request_duration_seconds_bucket[10m]))) > 60
+        for: 15m
+        labels: { severity: ticket }
+        annotations:
+          summary: p95 LLM latency is above 60s

@@ -1,0 +1,20 @@
+# kubectl apply -k deploy/k8s     (create the secret first - see secret.example.yaml)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: docpilot
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - worker.yaml
+  - web.yaml
+  - ingress.yaml
+  - autoscaling.yaml
+images:
+  - name: docpilot-api
+    newName: ghcr.io/your-org/docpilot-api
+    newTag: latest
+  - name: docpilot-web
+    newName: ghcr.io/your-org/docpilot-web
+    newTag: latest

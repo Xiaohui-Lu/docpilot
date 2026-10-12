@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-paper: #f5f3ee;
+  --color-ink: #1d2a2e;
+  --color-muted: #5f6b6e;
+  --color-line: #e3e0d8;
+  --color-brand-50: #eaf6f2;
+  --color-brand-100: #cfece2;
+  --color-brand-200: #a7dcc9;
+  --color-brand-400: #4fb495;
+  --color-brand-500: #1f8a70;
+  --color-brand-600: #18705b;
+  --color-brand-700: #145a4a;
+  --color-night: #12343b;
+  --color-night-2: #0d272c;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    @apply bg-brand-200;
+  }
+}
+
+@utility card {
+  @apply rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(16,40,44,0.04)];
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition
+    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed
+    disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-night text-white hover:bg-night-2;
+}
+@utility btn-secondary {
+  @apply btn border border-line bg-white text-ink hover:bg-paper;
+}
+@utility btn-danger {
+  @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+}
+@utility input {
+  @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition
+    placeholder:text-muted/70 focus:border-brand-400 focus:ring-2 focus:ring-brand-100;
+}
+@utility label {
+  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+}
+@utility kicker {
+  @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-600;
+}
+
+mark.hl {
+  @apply rounded bg-amber-200/80 px-0.5 text-ink;
+}

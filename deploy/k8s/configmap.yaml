@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docpilot-config
+data:
+  DOCPILOT_ENV: prod
+  DOCPILOT_LLM_PROVIDER: claude
+  DOCPILOT_LLM_MODEL: claude-opus-5-5
+  DOCPILOT_LLM_EFFORT: medium
+  DOCPILOT_CORS_ORIGINS: https://docpilot.example.com
+  DOCPILOT_AUTO_CREATE_SCHEMA: "false"
+  DOCPILOT_WORKER_EMBEDDED: "false"
+  DOCPILOT_JOB_MAX_ATTEMPTS: "4"
+  DOCPILOT_APP_BASE_URL: https://docpilot.example.com
+  DOCPILOT_SMTP_HOST: email-smtp.us-east-1.amazonaws.com  # e.g. Amazon SES; credentials in the secret
+  DOCPILOT_SMTP_PORT: "587"
+  DOCPILOT_SMTP_FROM: DocPilot <alerts@docpilot.example.com>
