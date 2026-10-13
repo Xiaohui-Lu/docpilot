@@ -35,10 +35,14 @@ def quote_is_grounded(quote: str, text_norm: str, threshold: float = 0.88) -> bo
 def check_grounding(insights: DocumentInsights, text: str) -> dict[str, Any]:
     text_norm = _norm(text)
     items: list[dict[str, Any]] = []
+    # An empty quote is legitimate for things that are *missing* (e.g. "no data-protection terms"):
+    # there is nothing to verify, so it is neither counted as grounded nor as a hallucination.
     for i, d in enumerate(insights.key_dates):
-        items.append({"kind": "date", "index": i, "grounded": quote_is_grounded(d.source_quote, text_norm)})
+        if d.source_quote.strip():
+            items.append({"kind": "date", "index": i, "grounded": quote_is_grounded(d.source_quote, text_norm)})
     for i, r in enumerate(insights.risks):
-        items.append({"kind": "risk", "index": i, "grounded": quote_is_grounded(r.source_quote, text_norm)})
+        if r.source_quote.strip():
+            items.append({"kind": "risk", "index": i, "grounded": quote_is_grounded(r.source_quote, text_norm)})
     grounded = sum(1 for it in items if it["grounded"])
     return {
         "checked": len(items),

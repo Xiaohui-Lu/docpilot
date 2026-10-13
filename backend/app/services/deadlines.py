@@ -16,7 +16,11 @@ from sqlalchemy.orm import Session
 from app.models import DeadlineAck, Document
 
 # Dates that record something that already happened are not actionable.
-_NOT_ACTIONABLE = re.compile(r"sign|effective|start|commenc|issue|approv|dated|executed|made on", re.I)
+_NOT_ACTIONABLE = re.compile(
+    r"sign|effective|start|commenc|issue|approv|dated|executed|made on"
+    r"|agreement date|contract date|invoice date|billing date",
+    re.I,
+)
 
 _KIND_BY_LABEL = (
     (re.compile(r"payment|due|payable", re.I), "payment_due"),
@@ -94,8 +98,10 @@ def items_for_document(doc: Document, today: date) -> list[ActionItem]:
 
     renewal = ins.get("renewal") or {}
     term_end = _parse(renewal.get("term_end_date", "")) if renewal.get("auto_renews") else None
+    covered: set[date] = set()  # dates already represented by the computed renewal items
     if term_end:
         notice = int(renewal.get("notice_days") or 0)
+        covered = {term_end, term_end - timedelta(days=notice)}
         months = int(renewal.get("renewal_term_months") or 0)
         term_txt = f" for another {months} months" if months else ""
         quote = renewal.get("source_quote", "")
@@ -114,8 +120,8 @@ def items_for_document(doc: Document, today: date) -> list[ActionItem]:
         label = kd.get("label", "Date")
         if when is None or _NOT_ACTIONABLE.search(label):
             continue
-        if term_end and when == term_end:
-            continue  # already covered by the auto-renewal items
+        if when in covered:
+            continue  # the model sometimes lists the term end / notice deadline itself; don't show it twice
         kind = next((k for pattern, k in _KIND_BY_LABEL if pattern.search(label)), "date")
         add(kind, label, when, "", kd.get("source_quote", ""))
     return items

@@ -58,3 +58,22 @@ describe("deadline wording", () => {
     expect(daysText(4)).toBe("In 4 days");
   });
 });
+
+describe("RichText", () => {
+  it("renders bold, bullets and citation markers without raw markdown", async () => {
+    const { RichText } = await import("./RichText");
+    const { container } = render(
+      <RichText text={"You need **90 days'** notice [2].\n\n- First point [1]\n- Second **point**"} />,
+    );
+    expect(container.querySelector("strong")?.textContent).toBe("90 days'");
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+    expect(container.querySelectorAll("sup")).toHaveLength(2);
+    expect(container.textContent).not.toContain("**");
+  });
+
+  it("does not interpret HTML in model output", async () => {
+    const { RichText } = await import("./RichText");
+    const { container } = render(<RichText text={"<img src=x onerror=alert(1)> hello"} />);
+    expect(container.querySelector("img")).toBeNull();
+  });
+});

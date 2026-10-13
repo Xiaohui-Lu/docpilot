@@ -92,3 +92,8 @@ def test_grounding_flags_fabricated_quotes():
 def test_grounding_tolerates_whitespace_and_quotes():
     text = "the  “Provider”   shall\nnotify the Customer within 72 hours"
     assert quote_is_grounded('the "Provider" shall notify the Customer within 72 hours', _norm(text))
+
+
+def test_missing_clause_risks_without_quotes_are_not_counted():
+    result = check_grounding(_insights(""), "The initial term ends on January 14, 2027.")
+    assert result["checked"] == 1 and result["ungrounded"] == 0

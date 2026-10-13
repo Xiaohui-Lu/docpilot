@@ -138,3 +138,21 @@ def test_dashboard_includes_deadline_and_policy_summary(client):
     stats = client.get("/api/analytics/overview", headers=h).json()
     assert {"overdue", "next_14_days", "next_30_days", "next_cancel_by"} <= set(stats["deadlines"])
     assert {"documents_with_violations", "violations", "top_rules"} <= set(stats["policy"])
+
+
+def test_model_listed_notice_deadline_is_not_duplicated():
+    doc = _doc(
+        renewal={"auto_renews": True, "term_end_date": "2026-12-31", "notice_days": 60, "renewal_term_months": 12},
+        key_dates=[
+            {"label": "Agreement date", "date": "2026-10-20", "source_quote": "x"},
+            {"label": "Invoice date", "date": "2026-10-01", "source_quote": "x"},
+            {"label": "Initial term end", "date": "2026-12-31", "source_quote": "x"},
+            {
+                "label": "Non-renewal notice deadline (60 days before term end)",
+                "date": "2026-11-01",
+                "source_quote": "x",
+            },
+        ],
+    )
+    kinds = sorted(i.kind for i in items_for_document(doc, TODAY))
+    assert kinds == ["auto_renews", "cancel_by"]

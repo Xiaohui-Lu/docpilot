@@ -20,4 +20,4 @@ test-results/
 .env
 *.log
 .DS_Store
-outbox/
+outbox*/

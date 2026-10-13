@@ -1,5 +1,7 @@
 # DocPilot - AI contract review, deadlines & policy checks
 
+[![CI](https://github.com/Xiaohui-Lu/docpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/Xiaohui-Lu/docpilot/actions/workflows/ci.yml)
+
 ### Never miss a contract renewal or notice deadline again.
 
 **DocPilot is an AI contract assistant that _reviews_ every agreement, _tracks_ every deadline and _checks_ each contract against your company's own rules.**
@@ -9,6 +11,8 @@
 | AI reads each contract into structured data, flags risky clauses, verifies every quote and answers questions with citations. | Computes every deadline - including the _last day to cancel_ an auto-renewal, which appears nowhere in the document - and emails your team weekly, with a calendar feed. | Checks every agreement against your rulebook ("notice <= 60 days", "liability must be capped", "CFO approval over $50k"), including plain-English rules checked by AI. |
 
 ![Dashboard](docs/screenshots/01-dashboard.png)
+
+_Screenshots show real output from Claude (`claude-opus-5-5`) on the 7 fictional sample documents. Analyzing all 7 and answering 4 questions cost about $0.44 in API usage._
 
 > Portfolio project by **Xiaohui Lu** - senior full-stack / DevOps engineer. It shows how I turn an LLM feature into a product people can rely on: structured, verified AI output feeding scheduled workflows, alerts, policy checks, multi-tenancy, observability, tests and deployment.
 
@@ -80,7 +84,7 @@ For reading one document once, a chat assistant is great. DocPilot is for the pa
 - **Tenant isolation by construction.** Every query, retrieval, rule and calendar feed is scoped to the organization; cross-tenant IDs return 404. Covered by tests.
 - **Observability.** JSON logs with request IDs, Prometheus metrics (HTTP, jobs, queue depth, LLM latency / tokens / cost), alert rules, Grafana dashboard.
 - **Runs offline.** A rule-based demo provider implements the same interface, so the product and CI run with no API key and zero cost.
-- **Tested.** 57 backend tests (SQLite and PostgreSQL in CI), frontend unit tests, Playwright E2E covering upload -> deadlines -> mark handled -> rulebook.
+- **Tested.** 59 backend tests (SQLite and PostgreSQL in CI), frontend unit tests, Playwright E2E covering upload -> deadlines -> mark handled -> rulebook.
 
 ## Architecture
 
@@ -163,7 +167,7 @@ Separate API / worker / web Deployments, migrate Job, probes, resource limits, H
 ## Tests
 
 ```bash
-cd backend && pytest                                   # 57 tests; set TEST_DATABASE_URL to run on PostgreSQL
+cd backend && pytest                                   # 59 tests; set TEST_DATABASE_URL to run on PostgreSQL
 cd frontend && npm test && npm run typecheck           # unit tests + strict TypeScript
 cd frontend && npx playwright test                     # E2E against a real API + worker + UI
 ```

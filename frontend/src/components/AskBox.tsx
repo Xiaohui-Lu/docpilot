@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { AskResponse, Citation } from "../lib/types";
+import { RichText } from "./RichText";
 import { ErrorNote } from "./ui";
 
 export function AnswerView({
@@ -21,7 +22,9 @@ export function AnswerView({
         <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
           <Bot className="size-4" />
         </div>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-ink">{answer}</p>
+        <div className="min-w-0 flex-1">
+          <RichText text={answer} />
+        </div>
       </div>
       {citations.length > 0 && (
         <ol className="ml-10 space-y-2">
